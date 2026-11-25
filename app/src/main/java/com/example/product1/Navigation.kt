@@ -1,13 +1,16 @@
 package com.example.product1
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.gson.reflect.TypeToken
+
+// Перечисление для типов сортировки
+enum class SortType {
+    NAME_ASC, NAME_DESC, QUANTITY_ASC, QUANTITY_DESC
+}
 
 @Composable
 fun AppNavigation() {
@@ -15,42 +18,107 @@ fun AppNavigation() {
     val context = LocalContext.current
     val storage = remember { DataStorage(context) }
 
-    val itemListType = object : TypeToken<List<Item>>() {}.type
+    val characterListType = object : TypeToken<List<Character>>() {}.type
 
-    // Теперь у нас один единый список всех предметов
-    val items = remember {
-        val saved = storage.loadData<List<Item>>("items", itemListType)
-        if (saved != null) mutableStateListOf(*saved.toTypedArray())
-        else mutableStateListOf() // Изначально рюкзак пуст
+    val characters = remember {
+        mutableStateListOf<Character>().apply {
+            val saved = storage.loadData<List<Character>>("characters", characterListType)
+            if (saved != null) addAll(saved)
+        }
     }
 
     val saveAllData = {
-        storage.saveData("items", items)
+        storage.saveData("characters", characters.toList())
     }
 
-    NavHost(navController = navController, startDestination = "main_screen") {
-        composable("main_screen") {
-            MainScreen(
-                navController = navController,
-                items = items,
-                onSaveNeeded = { saveAllData() }
+    var currentTab by remember { mutableStateOf(0) }
+    var currentFilter by remember { mutableStateOf(FilterState()) }
+
+    // ДОБАВИЛИ СОСТОЯНИЕ СОРТИРОВКИ
+    var currentSort by remember { mutableStateOf(SortType.NAME_ASC) }
+
+    NavHost(navController = navController, startDestination = "characters_screen") {
+
+        composable("characters_screen") {
+            CharacterListScreen(
+                characters = characters,
+                onCharacterClick = { id -> navController.navigate("main_screen/$id") },
+                onAddCharacter = { name, note ->
+                    characters.add(Character(name = name, note = note))
+                    saveAllData()
+                },
+                onDeleteCharacter = { id ->
+                    characters.removeAll { it.id == id }
+                    saveAllData()
+                },
+                onEditCharacter = { id, newName, newNote ->
+                    val index = characters.indexOfFirst { it.id == id }
+                    if (index != -1) {
+                        characters[index] = characters[index].copy(name = newName, note = newNote)
+                        saveAllData()
+                    }
+                }
             )
         }
 
-        composable("edit_item/{id}") { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("id") ?: ""
+        composable("main_screen/{charId}") { backStackEntry ->
+            val charId = backStackEntry.arguments?.getString("charId") ?: ""
+            val characterIndex = characters.indexOfFirst { it.id == charId }
 
-            EditItemScreen(
-                itemId = id,
-                items = items,
-                onSaveComplete = {
-                    saveAllData()
+            if (characterIndex != -1) {
+                val character = characters[characterIndex]
+                MainScreen(
+                    characterName = character.name,
+                    charId = charId,
+                    items = character.items,
+                    onItemsChange = { newItems ->
+                        characters[characterIndex] = character.copy(items = newItems)
+                        saveAllData()
+                    },
+                    onBackClick = { navController.popBackStack() },
+                    navController = navController,
+                    selectedTab = currentTab,
+                    onTabChange = { currentTab = it },
+                    currentFilter = currentFilter,
+                    onOpenFilters = { navController.navigate("filter_screen") },
+                    currentSort = currentSort,         // <-- ПЕРЕДАЕМ СОРТИРОВКУ
+                    onSortChange = { currentSort = it } // <-- ОБНОВЛЯЕМ СОРТИРОВКУ
+                )
+            }
+        }
+
+        composable("edit_item/{charId}/{itemId}") { backStackEntry ->
+            val charId = backStackEntry.arguments?.getString("charId") ?: ""
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
+
+            val characterIndex = characters.indexOfFirst { it.id == charId }
+
+            if (characterIndex != -1) {
+                val character = characters[characterIndex]
+                EditItemScreen(
+                    itemId = itemId,
+                    items = character.items,
+                    onItemsChange = { newItems ->
+                        characters[characterIndex] = character.copy(items = newItems)
+                        saveAllData()
+                    },
+                    onSaveComplete = { navController.popBackStack() },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("filter_screen") {
+            FilterScreen(
+                currentFilter = currentFilter,
+                onApply = { newFilter ->
+                    currentFilter = newFilter
                     navController.popBackStack()
                 },
-                onBackClick = {
-                    saveAllData()
-                    navController.popBackStack()
-                }
+                onReset = {
+                    currentFilter = FilterState()
+                },
+                onBackClick = { navController.popBackStack() }
             )
         }
     }
