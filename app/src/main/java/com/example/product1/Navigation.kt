@@ -7,11 +7,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.gson.reflect.TypeToken
 
-// Перечисление для типов сортировки
-enum class SortType {
-    NAME_ASC, NAME_DESC, QUANTITY_ASC, QUANTITY_DESC
-}
-
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -34,8 +29,9 @@ fun AppNavigation() {
     var currentTab by remember { mutableStateOf(0) }
     var currentFilter by remember { mutableStateOf(FilterState()) }
 
-    // ДОБАВИЛИ СОСТОЯНИЕ СОРТИРОВКИ
-    var currentSort by remember { mutableStateOf(SortType.NAME_ASC) }
+    // НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ СОРТИРОВКИ
+    var currentSortOption by remember { mutableStateOf("Название") }
+    var isAscending by remember { mutableStateOf(true) }
 
     NavHost(navController = navController, startDestination = "characters_screen") {
 
@@ -81,8 +77,13 @@ fun AppNavigation() {
                     onTabChange = { currentTab = it },
                     currentFilter = currentFilter,
                     onOpenFilters = { navController.navigate("filter_screen") },
-                    currentSort = currentSort,         // <-- ПЕРЕДАЕМ СОРТИРОВКУ
-                    onSortChange = { currentSort = it } // <-- ОБНОВЛЯЕМ СОРТИРОВКУ
+                    // ПЕРЕДАЕМ СОРТИРОВКУ
+                    currentSortOption = currentSortOption,
+                    isAscending = isAscending,
+                    onSortChange = { option, ascending ->
+                        currentSortOption = option
+                        isAscending = ascending
+                    }
                 )
             }
         }
@@ -90,7 +91,6 @@ fun AppNavigation() {
         composable("edit_item/{charId}/{itemId}") { backStackEntry ->
             val charId = backStackEntry.arguments?.getString("charId") ?: ""
             val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
-
             val characterIndex = characters.indexOfFirst { it.id == charId }
 
             if (characterIndex != -1) {

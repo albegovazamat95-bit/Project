@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,14 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
-// Класс для хранения состояния фильтров
+// Класс для хранения состояния фильтров (ТЕПЕРЬ ТОЛЬКО КАТЕГОРИИ)
 data class FilterState(
-    val searchQuery: String = "",
-    val minQuantity: String = "",
-    val maxQuantity: String = "",
     val selectedCategories: Set<String> = emptySet()
 )
 
@@ -33,13 +28,10 @@ fun FilterScreen(
     onReset: () -> Unit,
     onBackClick: () -> Unit
 ) {
-    // Локальные состояния для экрана фильтров
-    var searchQuery by remember { mutableStateOf(currentFilter.searchQuery) }
-    var minQty by remember { mutableStateOf(currentFilter.minQuantity) }
-    var maxQty by remember { mutableStateOf(currentFilter.maxQuantity) }
+    // Локальное состояние выбранных категорий
     val selectedCategories = remember { mutableStateListOf<String>().apply { addAll(currentFilter.selectedCategories) } }
 
-    // Список категорий, которые можно фильтровать (исключаем "Нет")
+    // Список категорий (исключаем "Нет")
     val categoriesToFilter = allCategories.filter { it != "Нет" }
 
     Scaffold(
@@ -59,17 +51,14 @@ fun FilterScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding() // <--- ВОТ ЭТА СТРОКА УБИРАЕТ НАЛОЖЕНИЕ НА ПАНЕЛЬ ТЕЛЕФОНА
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedButton(
                     onClick = {
-                        // Сброс всех полей
-                        searchQuery = ""
-                        minQty = ""
-                        maxQty = ""
                         selectedCategories.clear()
-                        onReset() // Сообщаем наверх, чтобы сбросили фильтр в списке
+                        onReset() // Сбрасываем фильтр в списке
                     },
                     modifier = Modifier.weight(1f).height(50.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -79,7 +68,7 @@ fun FilterScreen(
                 }
                 Button(
                     onClick = {
-                        onApply(FilterState(searchQuery, minQty, maxQty, selectedCategories.toSet()))
+                        onApply(FilterState(selectedCategories.toSet()))
                     },
                     modifier = Modifier.weight(1f).height(50.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -95,56 +84,11 @@ fun FilterScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Поиск по названию
-            Text("Название предмета", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Найти предмет...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Количество
-            Text("Количество", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = minQty,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) minQty = it },
-                    placeholder = { Text("От") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-                Text("-", color = MaterialTheme.colorScheme.onBackground)
-                OutlinedTextField(
-                    value = maxQty,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) maxQty = it },
-                    placeholder = { Text("До") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Категории
+            // Категории (сразу идут после заголовка)
             Text("Категории", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Выводим категории в две колонки
             categoriesToFilter.chunked(2).forEach { rowCategories ->
@@ -164,7 +108,7 @@ fun FilterScreen(
                         ) {
                             Checkbox(
                                 checked = selectedCategories.contains(category),
-                                onCheckedChange = null, // Обрабатываем клик на всю строку
+                                onCheckedChange = null,
                                 colors = CheckboxDefaults.colors(
                                     checkedColor = MaterialTheme.colorScheme.primary,
                                     uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -173,13 +117,11 @@ fun FilterScreen(
                             Text(category, color = MaterialTheme.colorScheme.onBackground)
                         }
                     }
-                    // Если в ряду нечетное количество элементов, добавляем пустое место
                     if (rowCategories.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
